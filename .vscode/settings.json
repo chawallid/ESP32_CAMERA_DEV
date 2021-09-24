@@ -9,6 +9,21 @@
         "typeinfo": "cpp",
         "algorithm": "cpp",
         "complex": "cpp",
-        "new": "cpp"
+        "new": "cpp",
+        "array": "cpp",
+        "*.tcc": "cpp",
+        "cstdio": "cpp",
+        "cwchar": "cpp",
+        "vector": "cpp",
+        "functional": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "random": "cpp",
+        "fstream": "cpp",
+        "initializer_list": "cpp",
+        "memory": "cpp",
+        "stdexcept": "cpp",
+        "system_error": "cpp",
+        "utility": "cpp"
     }
 }

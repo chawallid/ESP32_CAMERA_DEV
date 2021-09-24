@@ -34,6 +34,9 @@
 #define FACE_COLOR_YELLOW (FACE_COLOR_RED | FACE_COLOR_GREEN)
 #define FACE_COLOR_CYAN   (FACE_COLOR_BLUE | FACE_COLOR_GREEN)
 #define FACE_COLOR_PURPLE (FACE_COLOR_BLUE | FACE_COLOR_RED)
+#define FRAME_SIZE FRAMESIZE_QQVGA
+#define WIDTH 160
+#define HEIGHT 120  
 
 typedef struct {
         size_t size; //number of values used for filtering
@@ -47,6 +50,55 @@ typedef struct {
         httpd_req_t *req;
         size_t len;
 } jpg_chunking_t;
+
+
+size_t grayScale_(dl_matrix3du_t *image_888,dl_matrix3du_t **gray)
+{
+  *gray = dl_matrix3du_alloc(1,image_888->w,image_888->h,1);
+  if (!*gray)
+    return(0);
+  (*gray)->w = image_888->w;
+  (*gray)->h = image_888->h;
+  (*gray)->c = 1;
+  size_t len = image_888->w * image_888->h * image_888->c;
+  size_t lengray=0;
+  for(size_t i=0;i<len;i+=3)
+  {
+    uint8_t r = image_888->item[i];
+    uint8_t g = image_888->item[i+1]; 
+    uint8_t b = image_888->item[i+2];
+    uint8_t m = max(r, g);
+    m = max(m,b);
+    uint8_t n = min(r, g);
+    n = min(n,b);
+    uint8_t gr = (m+n)/2;
+    
+    //uint8_t gr = (r*0.3)+(g*0.59)+(b*0.11);
+    (*gray)->item[lengray]=gr;
+    lengray++;  
+  }
+  return(lengray);
+}
+
+
+size_t gray2gray888(dl_matrix3du_t *gray,dl_matrix3du_t **image_888)
+{
+  if (*image_888)
+      dl_matrix3du_free(*image_888);
+  *image_888 = dl_matrix3du_alloc(1,gray->w,gray->h,3);
+  if (!*image_888)
+    return(0);
+  size_t len = gray->w*gray->h*gray->c;
+  size_t lenout=0;
+  for(size_t i=0;i<len;i++)
+  {
+    uint8_t g = gray->item[i];
+    (*image_888)->item[lenout++] = g;
+    (*image_888)->item[lenout++] = g;
+    (*image_888)->item[lenout++] = g;
+  }
+  return(lenout);
+}
 
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
@@ -62,6 +114,16 @@ static int8_t detection_enabled = 0;
 static int8_t recognition_enabled = 0;
 static int8_t is_enrolling = 0;
 static face_id_list id_list = {0};
+
+size_t jpgCallBack(void * arg, size_t index, const void* data, size_t len)
+{
+  uint8_t* basePtr = (uint8_t*) data;
+  for (size_t i = 0; i < len; i++) {
+    Serial.write(basePtr[i]);
+//    Serial.write(",");
+  }
+  return 0;
+}
 
 static ra_filter_t * ra_filter_init(ra_filter_t * filter, size_t sample_size){
     memset(filter, 0, sizeof(ra_filter_t));
@@ -91,6 +153,7 @@ static int ra_filter_run(ra_filter_t * filter, int value){
     return filter->sum / filter->count;
 }
 
+//fill string to image 
 static void rgb_print(dl_matrix3du_t *image_matrix, uint32_t color, const char * str){
     fb_data_t fb;
     fb.width = image_matrix->w;
@@ -228,6 +291,7 @@ static size_t jpg_encode_stream(void * arg, size_t index, const void* data, size
     return len;
 }
 
+
 static esp_err_t capture_handler(httpd_req_t *req){
     camera_fb_t * fb = NULL;
     esp_err_t res = ESP_OK;
@@ -249,6 +313,10 @@ static esp_err_t capture_handler(httpd_req_t *req){
     bool detected = false;
 
     dl_matrix3du_t *image_matrix = dl_matrix3du_alloc(1, fb->width, fb->height, 3);
+//    corp_image = dl_matrix3du_alloc(1, 320, 240, 3);
+//    dst_image = dl_matrix3du_alloc(1, 32, 32, 3);
+
+
     if (!image_matrix) {
         esp_camera_fb_return(fb);
         Serial.println("dl_matrix3du_alloc failed");
@@ -262,24 +330,33 @@ static esp_err_t capture_handler(httpd_req_t *req){
     out_height = fb->height;
 
     s = fmt2rgb888(fb->buf, fb->len, fb->format, out_buf);
-    esp_camera_fb_return(fb);
     if(!s){
         dl_matrix3du_free(image_matrix);
         Serial.println("to rgb888 failed");
         httpd_resp_send_500(req);
         return ESP_FAIL;
     }
-    draw_boxes(image_matrix);
-    
-    // jpg_chunking_t jchunk = {req, 0};
-    // s = fmt2jpg_cb(out_buf, out_len, out_width, out_height, PIXFORMAT_RGB888, 90, jpg_encode_stream, &jchunk);
-    dl_matrix3du_free(image_matrix);
-    // if(!s){
-    //     Serial.println("JPEG compression failed");
-    //     return ESP_FAIL;
-    // }
 
-    // int64_t fr_end = esp_timer_get_time();
+    Serial.printf("\n\nWidth = %u, Height=%u\n", fb->width, fb->height);
+    for (size_t i = 0; i < fb->len; i++) {
+      if (i % fb->width == 0) Serial.printf("\n%06u\t", i);
+//      if (fb->buf[i] < 0x10) Serial.write('0');
+      Serial.print(fb->buf[i]);
+      Serial.print(",");
+    }
+    Serial.println(F("\n\n---------------------\nPREPARE TO CAPTURE\n"));
+    
+    jpg_chunking_t jchunk = {req, 0};
+    s = fmt2jpg_cb(out_buf, out_len, out_width, out_height, PIXFORMAT_RGB888, 90, jpg_encode_stream, &jchunk);
+    dl_matrix3du_free(image_matrix);
+    if(!s){
+        Serial.println("JPEG compression failed");
+        return ESP_FAIL;
+    }
+
+    draw_boxes(image_matrix);
+    esp_camera_fb_return(fb);
+    dl_matrix3du_free(image_matrix);
     return res;
 }
 
