@@ -20,23 +20,21 @@
 
 #include "fb_gfx.h"
 #include "fd_forward.h"
-//#include "dl_lib.h"
+// #include "dl_lib.h"
 #include "fr_forward.h"
 
 #define ENROLL_CONFIRM_TIMES 5
 #define FACE_ID_SAVE_NUMBER 7
 
-#define FACE_COLOR_WHITE  0x00FFFFFF
-#define FACE_COLOR_BLACK  0x00000000
-#define FACE_COLOR_RED    0x000000FF
-#define FACE_COLOR_GREEN  0x0000FF00
-#define FACE_COLOR_BLUE   0x00FF0000
-#define FACE_COLOR_YELLOW (FACE_COLOR_RED | FACE_COLOR_GREEN)
-#define FACE_COLOR_CYAN   (FACE_COLOR_BLUE | FACE_COLOR_GREEN)
-#define FACE_COLOR_PURPLE (FACE_COLOR_BLUE | FACE_COLOR_RED)
-#define FRAME_SIZE FRAMESIZE_QQVGA
-#define WIDTH 160
-#define HEIGHT 120  
+#define COLOR_WHITE  0x00FFFFFF
+#define COLOR_BLACK  0x00000000
+#define COLOR_RED    0x000000FF
+#define COLOR_GREEN  0x0000FF00
+#define COLOR_BLUE   0x00FF0000
+#define COLOR_YELLOW (COLOR_RED | COLOR_GREEN)
+#define COLOR_CYAN   (COLOR_BLUE | COLOR_GREEN)
+#define COLOR_PURPLE (COLOR_BLUE | COLOR_RED)
+#define THRESHOLD 160
 
 typedef struct {
         size_t size; //number of values used for filtering
@@ -50,55 +48,6 @@ typedef struct {
         httpd_req_t *req;
         size_t len;
 } jpg_chunking_t;
-
-
-size_t grayScale_(dl_matrix3du_t *image_888,dl_matrix3du_t **gray)
-{
-  *gray = dl_matrix3du_alloc(1,image_888->w,image_888->h,1);
-  if (!*gray)
-    return(0);
-  (*gray)->w = image_888->w;
-  (*gray)->h = image_888->h;
-  (*gray)->c = 1;
-  size_t len = image_888->w * image_888->h * image_888->c;
-  size_t lengray=0;
-  for(size_t i=0;i<len;i+=3)
-  {
-    uint8_t r = image_888->item[i];
-    uint8_t g = image_888->item[i+1]; 
-    uint8_t b = image_888->item[i+2];
-    uint8_t m = max(r, g);
-    m = max(m,b);
-    uint8_t n = min(r, g);
-    n = min(n,b);
-    uint8_t gr = (m+n)/2;
-    
-    //uint8_t gr = (r*0.3)+(g*0.59)+(b*0.11);
-    (*gray)->item[lengray]=gr;
-    lengray++;  
-  }
-  return(lengray);
-}
-
-
-size_t gray2gray888(dl_matrix3du_t *gray,dl_matrix3du_t **image_888)
-{
-  if (*image_888)
-      dl_matrix3du_free(*image_888);
-  *image_888 = dl_matrix3du_alloc(1,gray->w,gray->h,3);
-  if (!*image_888)
-    return(0);
-  size_t len = gray->w*gray->h*gray->c;
-  size_t lenout=0;
-  for(size_t i=0;i<len;i++)
-  {
-    uint8_t g = gray->item[i];
-    (*image_888)->item[lenout++] = g;
-    (*image_888)->item[lenout++] = g;
-    (*image_888)->item[lenout++] = g;
-  }
-  return(lenout);
-}
 
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
@@ -114,16 +63,6 @@ static int8_t detection_enabled = 0;
 static int8_t recognition_enabled = 0;
 static int8_t is_enrolling = 0;
 static face_id_list id_list = {0};
-
-size_t jpgCallBack(void * arg, size_t index, const void* data, size_t len)
-{
-  uint8_t* basePtr = (uint8_t*) data;
-  for (size_t i = 0; i < len; i++) {
-    Serial.write(basePtr[i]);
-//    Serial.write(",");
-  }
-  return 0;
-}
 
 static ra_filter_t * ra_filter_init(ra_filter_t * filter, size_t sample_size){
     memset(filter, 0, sizeof(ra_filter_t));
@@ -153,7 +92,6 @@ static int ra_filter_run(ra_filter_t * filter, int value){
     return filter->sum / filter->count;
 }
 
-//fill string to image 
 static void rgb_print(dl_matrix3du_t *image_matrix, uint32_t color, const char * str){
     fb_data_t fb;
     fb.width = image_matrix->w;
@@ -191,49 +129,54 @@ static int rgb_printf(dl_matrix3du_t *image_matrix, uint32_t color, const char *
 
 static void draw_boxes(dl_matrix3du_t *image_matrix){
     int x, y, w, h, i;
-    uint32_t color = FACE_COLOR_YELLOW;
+    uint32_t color = COLOR_YELLOW;
+
     fb_data_t fb;
     fb.width = image_matrix->w;
     fb.height = image_matrix->h;
     fb.data = image_matrix->item;
     fb.bytes_per_pixel = 3;
     fb.format = FB_BGR888;
+
+    x = (int)35;
+    y = (int)30;
+    w = (int)22;
+    h = (int)40;
     
-    x = (int)50;
-    y = (int)50;
-    w = (int)30;
-    h = (int)50;
     fb_gfx_drawFastHLine(&fb, x, y, w, color);
     fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
     fb_gfx_drawFastVLine(&fb, x, y, h, color);
     fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
 
-    x = (int)100;
-    y = (int)50;
-    w = (int)30;
-    h = (int)50;
+    x = (int)58;
+    y = (int)30;
+    w = (int)22;
+    h = (int)40;
+    
     fb_gfx_drawFastHLine(&fb, x, y, w, color);
     fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
     fb_gfx_drawFastVLine(&fb, x, y, h, color);
     fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
 
-    x = (int)150;
-    y = (int)50;
-    w = (int)30;
-    h = (int)50;
+    x = (int)81;
+    y = (int)30;
+    w = (int)22;
+    h = (int)40;
+    
     fb_gfx_drawFastHLine(&fb, x, y, w, color);
     fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
     fb_gfx_drawFastVLine(&fb, x, y, h, color);
     fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
-
-    x = (int)200;
-    y = (int)50;
-    w = (int)30;
-    h = (int)50;
-    fb_gfx_drawFastHLine(&fb, x, y, w, color);
-    fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
-    fb_gfx_drawFastVLine(&fb, x, y, h, color);
-    fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
+    
+#if 0
+        // landmark
+        int x0, y0, j;
+        for (j = 0; j < 10; j+=2) {
+            x0 = (int)boxes->landmark[i].landmark_p[j];
+            y0 = (int)boxes->landmark[i].landmark_p[j+1];
+            fb_gfx_fillRect(&fb, x0, y0, 3, 3, color);
+        }
+#endif
     
 }
 
@@ -254,7 +197,7 @@ static int run_face_recognition(dl_matrix3du_t *image_matrix, box_array_t *net_b
                 Serial.printf("Enrolling Face ID: %d\n", id_list.tail);
             }
             Serial.printf("Enrolling Face ID: %d sample %d\n", id_list.tail, ENROLL_CONFIRM_TIMES - left_sample_face);
-            rgb_printf(image_matrix, FACE_COLOR_CYAN, "ID[%u] Sample[%u]", id_list.tail, ENROLL_CONFIRM_TIMES - left_sample_face);
+            rgb_printf(image_matrix, COLOR_CYAN, "ID[%u] Sample[%u]", id_list.tail, ENROLL_CONFIRM_TIMES - left_sample_face);
             if (left_sample_face == 0){
                 is_enrolling = 0;
                 Serial.printf("Enrolled Face ID: %d\n", id_list.tail);
@@ -263,10 +206,10 @@ static int run_face_recognition(dl_matrix3du_t *image_matrix, box_array_t *net_b
             matched_id = recognize_face(&id_list, aligned_face);
             if (matched_id >= 0) {
                 Serial.printf("Match Face ID: %u\n", matched_id);
-                rgb_printf(image_matrix, FACE_COLOR_GREEN, "Hello Subject %u", matched_id);
+                rgb_printf(image_matrix, COLOR_GREEN, "Hello Subject %u", matched_id);
             } else {
                 Serial.println("No Match Found");
-                rgb_print(image_matrix, FACE_COLOR_RED, "Intruder Alert!");
+                rgb_print(image_matrix, COLOR_RED, "Intruder Alert!");
                 matched_id = -1;
             }
         }
@@ -291,7 +234,6 @@ static size_t jpg_encode_stream(void * arg, size_t index, const void* data, size
     return len;
 }
 
-
 static esp_err_t capture_handler(httpd_req_t *req){
     camera_fb_t * fb = NULL;
     esp_err_t res = ESP_OK;
@@ -311,56 +253,371 @@ static esp_err_t capture_handler(httpd_req_t *req){
     uint8_t * out_buf;
     bool s;
     bool detected = false;
+    int face_id = 0;
+    if(!detection_enabled || fb->width > 400){
+        size_t fb_len = 0;
+        dl_matrix3du_t *image_matrix = dl_matrix3du_alloc(1, fb->width, fb->height, 3);
+        out_buf = image_matrix->item;
+        out_len = fb->width * fb->height * 3;
+        out_width = fb->width;
+        out_height = fb->height;
+                
+        s = fmt2rgb888(fb->buf, fb->len, fb->format, out_buf);
+        draw_boxes(image_matrix);
+        if(fb->format == PIXFORMAT_JPEG){
+            fb_len = fb->len;
+            res = httpd_resp_send(req, (const char *)fb->buf, fb->len);
+        } else {
+            jpg_chunking_t jchunk = {req, 0};
+            s = fmt2jpg_cb(out_buf, out_len, out_width, out_height, PIXFORMAT_RGB888, 90, jpg_encode_stream, &jchunk);
+            dl_matrix3du_free(image_matrix);
+            fb_len = jchunk.len;
+        }
+        auto digit_1 = new int[40][22]; 
+        int count_row = 0 ;
 
-    dl_matrix3du_t *image_matrix = dl_matrix3du_alloc(1, fb->width, fb->height, 3);
-//    corp_image = dl_matrix3du_alloc(1, 320, 240, 3);
-//    dst_image = dl_matrix3du_alloc(1, 32, 32, 3);
+        
+        
+        
 
-
-    if (!image_matrix) {
+        Serial.printf("\n\nWidth = %u, Height=%u\n", fb->width, fb->height);
+        for (size_t i = 0; i < fb->len; i++) {
+            if (i % fb->width == 0 && i > fb->width) {
+               count_row ++;
+            }
+            if(i % fb->width >= 35 && i % fb->width < 57 && count_row >= 30 && count_row < 70){
+              Serial.println("check :"+String(count_row-30)+","+String(i % fb->width -35) +":"+String(int(fb->buf[i]) ));
+              
+              if (int(fb->buf[i]) < THRESHOLD){
+                digit_1[count_row - 30][i % fb->width -35] = (int) 1 ;
+              }else{
+                digit_1[count_row - 30][i % fb->width -35] = (int) 0 ;
+              }
+             
+            }
+           
+        }
         esp_camera_fb_return(fb);
-        Serial.println("dl_matrix3du_alloc failed");
-        httpd_resp_send_500(req);
-        return ESP_FAIL;
-    }
 
-    out_buf = image_matrix->item;
-    out_len = fb->width * fb->height * 3;
-    out_width = fb->width;
-    out_height = fb->height;
+//      print digit 1
+        Serial.print("digit_1 : { ");
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++)
+          {
+            Serial.print(digit_1[j][i]);
+            Serial.print(",");
+          }
+          Serial.println("");
+        }
+        Serial.println("}");
 
-    s = fmt2rgb888(fb->buf, fb->len, fb->format, out_buf);
-    if(!s){
-        dl_matrix3du_free(image_matrix);
-        Serial.println("to rgb888 failed");
-        httpd_resp_send_500(req);
-        return ESP_FAIL;
-    }
+//      count accuraccy
+        int count_acc = 0 ;
+        int count_index = 0 ; 
+        
+        float probs [] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+        
+       
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number1[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[0] : "+String(count_acc));
+        probs[0] =  count_acc / 880.0;
 
-    Serial.printf("\n\nWidth = %u, Height=%u\n", fb->width, fb->height);
-    for (size_t i = 0; i < fb->len; i++) {
-      if (i % fb->width == 0) Serial.printf("\n%06u\t", i);
-//      if (fb->buf[i] < 0x10) Serial.write('0');
-      Serial.print(fb->buf[i]);
-      Serial.print(",");
-    }
-    Serial.println(F("\n\n---------------------\nPREPARE TO CAPTURE\n"));
-    
-    jpg_chunking_t jchunk = {req, 0};
-    s = fmt2jpg_cb(out_buf, out_len, out_width, out_height, PIXFORMAT_RGB888, 90, jpg_encode_stream, &jchunk);
-    dl_matrix3du_free(image_matrix);
-    if(!s){
-        Serial.println("JPEG compression failed");
-        return ESP_FAIL;
-    }
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number2[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[1] : "+String(count_acc));
+        probs[1] =  count_acc / 880.0;
 
-    draw_boxes(image_matrix);
-    esp_camera_fb_return(fb);
-    dl_matrix3du_free(image_matrix);
-    return res;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number3[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[2] : "+String(count_acc));
+        probs[2] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number4[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[3] : "+String(count_acc));
+        probs[3] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number5[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[4] : "+String(count_acc));
+        probs[4] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number6[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[5] : "+String(count_acc));
+        probs[5] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number7[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[6] : "+String(count_acc));
+        probs[6] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number8[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[7] : "+String(count_acc));
+        probs[7] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number9[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[8] : "+String(count_acc));
+        probs[8] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 40 ; j++){
+          for (int i = 0; i < 22 ; i++){
+            if(number0[count_index] == digit_1[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[9] : "+String(count_acc));
+        probs[9] =  count_acc / 880.0;
+        
+
+//      print probs
+
+        Serial.print("{");
+        for (int k = 0; k < 10 ; k++){
+           Serial.print(probs[k]);
+           Serial.print(",");
+        }
+        Serial.println("}");
+
+
+//      find max index
+         
+        float max_value = 0.0;
+        int index = 0;
+        
+        for(int i = 0;i < 10; i++) {
+          if(max_value < float(probs[i])){
+             max_value = float(probs[i]);
+             index = i;
+          }
+        }  
+
+        if(index == 0){
+           Serial.println("predict number: 1");
+        }else  if(index == 1){
+           Serial.println("predict number: 2");
+        }else  if(index == 2){
+           Serial.println("predict number: 3");
+        }else if(index == 3){
+           Serial.println("predict number: 4");
+        }else if(index == 4){
+           Serial.println("predict number: 5");
+        }else if(index == 5){
+           Serial.println("predict number: 6");
+        }else if(index == 6){
+           Serial.println("predict number: 7");
+        }else if(index == 7){
+           Serial.println("predict number: 8");
+        }else if(index == 8){
+           Serial.println("predict number: 9");
+        }else if(index == 9){
+           Serial.println("predict number: 0");
+        }
+        
+
+        
+        
+        
+        
+
+        int64_t fr_end = esp_timer_get_time();
+        Serial.printf("JPG: %uB %ums\n", (uint32_t)(fb_len), (uint32_t)((fr_end - fr_start)/1000));
+        return res;
+    }
 }
 
+static esp_err_t stream_handler(httpd_req_t *req){
+    camera_fb_t * fb = NULL;
+    esp_err_t res = ESP_OK;
+    size_t _jpg_buf_len = 0;
+    uint8_t * _jpg_buf = NULL;
+    char * part_buf[64];
+    dl_matrix3du_t *image_matrix = NULL;
+    bool detected = false;
+    int face_id = 0;
+    int64_t fr_start = 0;
+    int64_t fr_ready = 0;
+    int64_t fr_face = 0;
+    int64_t fr_recognize = 0;
+    int64_t fr_encode = 0;
 
+    static int64_t last_frame = 0;
+    if(!last_frame) {
+        last_frame = esp_timer_get_time();
+    }
+
+    res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
+    if(res != ESP_OK){
+        return res;
+    }
+
+    while(true){
+        detected = false;
+        face_id = 0;
+        fb = esp_camera_fb_get();
+        if (!fb) {
+            Serial.println("Camera capture failed");
+            res = ESP_FAIL;
+        } else {
+            fr_start = esp_timer_get_time();
+            fr_ready = fr_start;
+            fr_face = fr_start;
+            fr_encode = fr_start;
+            fr_recognize = fr_start;
+            if(!detection_enabled || fb->width > 400){
+                if(fb->format != PIXFORMAT_JPEG){
+                    bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
+                    esp_camera_fb_return(fb);
+                    fb = NULL;
+                    if(!jpeg_converted){
+                        Serial.println("JPEG compression failed");
+                        res = ESP_FAIL;
+                    }
+                } else {
+                    _jpg_buf_len = fb->len;
+                    _jpg_buf = fb->buf;
+                }
+            } else {
+
+                image_matrix = dl_matrix3du_alloc(1, fb->width, fb->height, 3);
+
+                if (!image_matrix) {
+                    Serial.println("dl_matrix3du_alloc failed");
+                    res = ESP_FAIL;
+                } else {
+                    if(!fmt2rgb888(fb->buf, fb->len, fb->format, image_matrix->item)){
+                        Serial.println("fmt2rgb888 failed");
+                        res = ESP_FAIL;
+                    } 
+                    dl_matrix3du_free(image_matrix);
+                }
+            }
+        }
+        if(res == ESP_OK){
+            size_t hlen = snprintf((char *)part_buf, 64, _STREAM_PART, _jpg_buf_len);
+            res = httpd_resp_send_chunk(req, (const char *)part_buf, hlen);
+        }
+        if(res == ESP_OK){
+            res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
+        }
+        if(res == ESP_OK){
+            res = httpd_resp_send_chunk(req, _STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
+        }
+        if(fb){
+            esp_camera_fb_return(fb);
+            fb = NULL;
+            _jpg_buf = NULL;
+        } else if(_jpg_buf){
+            free(_jpg_buf);
+            _jpg_buf = NULL;
+        }
+        if(res != ESP_OK){
+            break;
+        }
+        int64_t fr_end = esp_timer_get_time();
+
+        int64_t ready_time = (fr_ready - fr_start)/1000;
+        int64_t face_time = (fr_face - fr_ready)/1000;
+        int64_t recognize_time = (fr_recognize - fr_face)/1000;
+        int64_t encode_time = (fr_encode - fr_recognize)/1000;
+        int64_t process_time = (fr_encode - fr_start)/1000;
+        
+        int64_t frame_time = fr_end - last_frame;
+        last_frame = fr_end;
+        frame_time /= 1000;
+        uint32_t avg_frame_time = ra_filter_run(&ra_filter, frame_time);
+        Serial.printf("MJPG: %uB %ums (%.1ffps), AVG: %ums (%.1ffps), %u+%u+%u+%u=%u %s%d\n",
+            (uint32_t)(_jpg_buf_len),
+            (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time,
+            avg_frame_time, 1000.0 / avg_frame_time,
+            (uint32_t)ready_time, (uint32_t)face_time, (uint32_t)recognize_time, (uint32_t)encode_time, (uint32_t)process_time,
+            (detected)?"DETECTED ":"", face_id
+        );
+    }
+
+    last_frame = 0;
+    return res;
+}
 
 static esp_err_t cmd_handler(httpd_req_t *req){
     char*  buf;
@@ -527,6 +784,14 @@ void startCameraServer(){
         .user_ctx  = NULL
     };
 
+   httpd_uri_t stream_uri = {
+        .uri       = "/stream",
+        .method    = HTTP_GET,
+        .handler   = stream_handler,
+        .user_ctx  = NULL
+    };
+
+
     ra_filter_init(&ra_filter, 20);
     
     mtmn_config.min_face = 80;
@@ -540,11 +805,20 @@ void startCameraServer(){
     mtmn_config.o_threshold.nms = 0.4;
     mtmn_config.o_threshold.candidate_number = 1;
     
+    face_id_init(&id_list, FACE_ID_SAVE_NUMBER, ENROLL_CONFIRM_TIMES);
+    
     Serial.printf("Starting web server on port: '%d'\n", config.server_port);
     if (httpd_start(&camera_httpd, &config) == ESP_OK) {
         httpd_register_uri_handler(camera_httpd, &index_uri);
         httpd_register_uri_handler(camera_httpd, &cmd_uri);
         httpd_register_uri_handler(camera_httpd, &status_uri);
         httpd_register_uri_handler(camera_httpd, &capture_uri);
+    }
+
+    config.server_port += 1;
+    config.ctrl_port += 1;
+    Serial.printf("Starting stream server on port: '%d'\n", config.server_port);
+    if (httpd_start(&stream_httpd, &config) == ESP_OK) {
+        httpd_register_uri_handler(stream_httpd, &stream_uri);
     }
 }

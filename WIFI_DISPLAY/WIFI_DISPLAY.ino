@@ -56,12 +56,11 @@ void setup() {
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_JPEG;  
+  config.pixel_format = PIXFORMAT_GRAYSCALE; //PIXFORMAT_RAW or PIXFORMAT_GRAYSCALE full pixel 
   config.frame_size = FRAME_SIZE;
   config.jpeg_quality = 12;  //0-63 lower number means higher quality
   config.fb_count = 1;
 
-  
   // camera init
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -70,7 +69,7 @@ void setup() {
     ESP.restart();
   }
   sensor_t * s = esp_camera_sensor_get();
-  s->set_framesize(s, FRAMESIZE_QVGA);
+  s->set_framesize(s, FRAMESIZE_QQVGA);
   int val = 2;
   s->set_special_effect(s, val);
 
