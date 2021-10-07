@@ -138,35 +138,69 @@ static void draw_boxes(dl_matrix3du_t *image_matrix){
     fb.bytes_per_pixel = 3;
     fb.format = FB_BGR888;
 
-    x = (int)35;
-    y = (int)30;
-    w = (int)22;
-    h = (int)40;
+    x = (int)37;
+    y = (int)38;
+    w = (int)14;
+    h = (int)27;
     
     fb_gfx_drawFastHLine(&fb, x, y, w, color);
     fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
     fb_gfx_drawFastVLine(&fb, x, y, h, color);
     fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
 
-    x = (int)58;
-    y = (int)30;
-    w = (int)22;
-    h = (int)40;
+    x = (int)55;
+    y = (int)38;
+    w = (int)14;
+    h = (int)27;
     
     fb_gfx_drawFastHLine(&fb, x, y, w, color);
     fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
     fb_gfx_drawFastVLine(&fb, x, y, h, color);
     fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
 
-    x = (int)81;
-    y = (int)30;
-    w = (int)22;
-    h = (int)40;
+    x = (int)73;
+    y = (int)38;
+    w = (int)14;
+    h = (int)27;
     
     fb_gfx_drawFastHLine(&fb, x, y, w, color);
     fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
     fb_gfx_drawFastVLine(&fb, x, y, h, color);
     fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
+    
+#if 0
+        // landmark
+        int x0, y0, j;
+        for (j = 0; j < 10; j+=2) {
+            x0 = (int)boxes->landmark[i].landmark_p[j];
+            y0 = (int)boxes->landmark[i].landmark_p[j+1];
+            fb_gfx_fillRect(&fb, x0, y0, 3, 3, color);
+        }
+#endif
+    
+}
+
+static void draw_boxes_stream(dl_matrix3du_t *image_matrix){
+    int x, y, w, h, i;
+    uint32_t color = COLOR_YELLOW;
+
+    fb_data_t fb;
+    fb.width = image_matrix->w;
+    fb.height = image_matrix->h;
+    fb.data = image_matrix->item;
+    fb.bytes_per_pixel = 3;
+    fb.format = FB_BGR888;
+
+    x = (int)37;
+    y = (int)38;
+    w = (int)50;
+    h = (int)27;
+    
+    fb_gfx_drawFastHLine(&fb, x, y, w, color);
+    fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
+    fb_gfx_drawFastVLine(&fb, x, y, h, color);
+    fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
+
     
 #if 0
         // landmark
@@ -273,7 +307,10 @@ static esp_err_t capture_handler(httpd_req_t *req){
             dl_matrix3du_free(image_matrix);
             fb_len = jchunk.len;
         }
-        auto digit_1 = new int[40][22]; 
+        auto digit_1 = new int[27][14];
+        auto digit_2 = new int[27][14];
+        auto digit_3 = new int[27][14]; 
+        
         int count_row = 0 ;
 
         
@@ -285,26 +322,66 @@ static esp_err_t capture_handler(httpd_req_t *req){
             if (i % fb->width == 0 && i > fb->width) {
                count_row ++;
             }
-            if(i % fb->width >= 35 && i % fb->width < 57 && count_row >= 30 && count_row < 70){
-              Serial.println("check :"+String(count_row-30)+","+String(i % fb->width -35) +":"+String(int(fb->buf[i]) ));
-              
+
+//          degit 1
+            if(i % fb->width >= 37 && i % fb->width < 51 && count_row >= 38 && count_row < 65){              
               if (int(fb->buf[i]) < THRESHOLD){
-                digit_1[count_row - 30][i % fb->width -35] = (int) 1 ;
+                digit_1[count_row - 38][i % fb->width -37] = (int) 1 ;
               }else{
-                digit_1[count_row - 30][i % fb->width -35] = (int) 0 ;
+                digit_1[count_row - 38][i % fb->width -37] = (int) 0 ;
               }
              
             }
+            
+//          digit 2
+            if(i % fb->width >= 55 && i % fb->width < 69 && count_row >= 38 && count_row < 65){              
+              if (int(fb->buf[i]) < THRESHOLD){
+                digit_2[count_row - 38][i % fb->width -55] = (int) 1 ;
+              }else{
+                digit_2[count_row - 38][i % fb->width -55] = (int) 0 ;
+              }
+            }
+            
+            if(i % fb->width >= 73 && i % fb->width < 87 && count_row >= 38 && count_row < 65){              
+              if (int(fb->buf[i]) < THRESHOLD){
+                digit_3[count_row - 38][i % fb->width -73] = (int) 1 ;
+              }else{
+                digit_3[count_row - 38][i % fb->width -73] = (int) 0 ;
+              }
+            }
+             
            
         }
         esp_camera_fb_return(fb);
 
 //      print digit 1
         Serial.print("digit_1 : { ");
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++)
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++)
           {
             Serial.print(digit_1[j][i]);
+            Serial.print(",");
+          }
+          Serial.println("");
+        }
+        Serial.println("}");
+
+        Serial.print("digit_2 : { ");
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++)
+          {
+            Serial.print(digit_2[j][i]);
+            Serial.print(",");
+          }
+          Serial.println("");
+        }
+        Serial.println("}");
+
+        Serial.print("digit_3 : { ");
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++)
+          {
+            Serial.print(digit_3[j][i]);
             Serial.print(",");
           }
           Serial.println("");
@@ -315,13 +392,18 @@ static esp_err_t capture_handler(httpd_req_t *req){
         int count_acc = 0 ;
         int count_index = 0 ; 
         
-        float probs [] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
-        
+        float probs_digit1 [] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+        float probs_digit2 [] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+        float probs_digit3 [] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+
+
+
+        Serial.println("probs_digit1");
        
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number1[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -329,12 +411,12 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[0] : "+String(count_acc));
-        probs[0] =  count_acc / 880.0;
+        probs_digit1[0] =  count_acc / 880.0;
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number2[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -342,13 +424,13 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[1] : "+String(count_acc));
-        probs[1] =  count_acc / 880.0;
+        probs_digit1[1] =  count_acc / 880.0;
 
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number3[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -356,12 +438,12 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[2] : "+String(count_acc));
-        probs[2] =  count_acc / 880.0;
+        probs_digit1[2] =  count_acc / 880.0;
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number4[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -369,12 +451,12 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[3] : "+String(count_acc));
-        probs[3] =  count_acc / 880.0;
+        probs_digit1[3] =  count_acc / 880.0;
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number5[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -382,12 +464,12 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[4] : "+String(count_acc));
-        probs[4] =  count_acc / 880.0;
+        probs_digit1[4] =  count_acc / 880.0;
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number6[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -395,12 +477,12 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[5] : "+String(count_acc));
-        probs[5] =  count_acc / 880.0;
+        probs_digit1[5] =  count_acc / 880.0;
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number7[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -408,12 +490,12 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[6] : "+String(count_acc));
-        probs[6] =  count_acc / 880.0;
+        probs_digit1[6] =  count_acc / 880.0;
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number8[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -421,12 +503,12 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[7] : "+String(count_acc));
-        probs[7] =  count_acc / 880.0;
+        probs_digit1[7] =  count_acc / 880.0;
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number9[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -434,12 +516,12 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[8] : "+String(count_acc));
-        probs[8] =  count_acc / 880.0;
+        probs_digit1[8] =  count_acc / 880.0;
 
         count_acc = 0 ;
         count_index = 0 ;
-        for (int j = 0; j < 40 ; j++){
-          for (int i = 0; i < 22 ; i++){
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
             if(number0[count_index] == digit_1[j][i]){
               count_acc++;
             }
@@ -447,52 +529,403 @@ static esp_err_t capture_handler(httpd_req_t *req){
           }
         }
         Serial.println("count_acc[9] : "+String(count_acc));
-        probs[9] =  count_acc / 880.0;
+        probs_digit1[9] =  count_acc / 880.0;
+        
+
+        Serial.println("probs_digit2");
+       
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number1_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[0] : "+String(count_acc));
+        probs_digit2[0] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[1] : "+String(count_acc));
+        probs_digit2[1] =  count_acc / 880.0;
+
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number3_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[2] : "+String(count_acc));
+        probs_digit2[2] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number4_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[3] : "+String(count_acc));
+        probs_digit2[3] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number5_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[4] : "+String(count_acc));
+        probs_digit2[4] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number6_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[5] : "+String(count_acc));
+        probs_digit2[5] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number7_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[6] : "+String(count_acc));
+        probs_digit2[6] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number8_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[7] : "+String(count_acc));
+        probs_digit2[7] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number9_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[8] : "+String(count_acc));
+        probs_digit2[8] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number0_digit2[count_index] == digit_2[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[9] : "+String(count_acc));
+        probs_digit2[9] =  count_acc / 880.0;
+        
+        Serial.println("probs_digit3");
+       
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number1_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[0] : "+String(count_acc));
+        probs_digit3[0] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number2_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[1] : "+String(count_acc));
+        probs_digit3[1] =  count_acc / 880.0;
+
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number3_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[2] : "+String(count_acc));
+        probs_digit3[2] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number4_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[3] : "+String(count_acc));
+        probs_digit3[3] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number5_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[4] : "+String(count_acc));
+        probs_digit3[4] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number6_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[5] : "+String(count_acc));
+        probs_digit3[5] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number7_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[6] : "+String(count_acc));
+        probs_digit3[6] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number8_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[7] : "+String(count_acc));
+        probs_digit3[7] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number9_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[8] : "+String(count_acc));
+        probs_digit3[8] =  count_acc / 880.0;
+
+        count_acc = 0 ;
+        count_index = 0 ;
+        for (int j = 0; j < 27 ; j++){
+          for (int i = 0; i < 14 ; i++){
+            if(number0_digit3[count_index] == digit_3[j][i]){
+              count_acc++;
+            }
+            count_index++;
+          }
+        }
+        Serial.println("count_acc[9] : "+String(count_acc));
+        probs_digit3[9] =  count_acc / 880.0;
         
 
 //      print probs
 
-        Serial.print("{");
+        Serial.print("prob number 1:{");
         for (int k = 0; k < 10 ; k++){
-           Serial.print(probs[k]);
+           Serial.print(probs_digit1[k]);
+           Serial.print(",");
+        }
+        Serial.println("}");
+
+        Serial.print("prob number 2:{");
+        for (int k = 0; k < 10 ; k++){
+           Serial.print(probs_digit2[k]);
+           Serial.print(",");
+        }
+        Serial.println("}");
+
+        Serial.print("prob number 3:{");
+        for (int k = 0; k < 10 ; k++){
+           Serial.print(probs_digit3[k]);
            Serial.print(",");
         }
         Serial.println("}");
 
 
+//      init output = string 
+
+        String output = "";
+        
 //      find max index
          
         float max_value = 0.0;
         int index = 0;
         
         for(int i = 0;i < 10; i++) {
-          if(max_value < float(probs[i])){
-             max_value = float(probs[i]);
+          if(max_value < float(probs_digit1[i])){
+             max_value = float(probs_digit1[i]);
              index = i;
           }
         }  
 
         if(index == 0){
-           Serial.println("predict number: 1");
+            output = output+"1";
         }else  if(index == 1){
-           Serial.println("predict number: 2");
+            output = output+"2";
         }else  if(index == 2){
-           Serial.println("predict number: 3");
+            output = output+"3";
         }else if(index == 3){
-           Serial.println("predict number: 4");
+            output = output+"4";
         }else if(index == 4){
-           Serial.println("predict number: 5");
+            output = output+"5";
         }else if(index == 5){
-           Serial.println("predict number: 6");
+            output = output+"6";
         }else if(index == 6){
-           Serial.println("predict number: 7");
+            output = output+"7";
         }else if(index == 7){
-           Serial.println("predict number: 8");
+            output = output+"8";
         }else if(index == 8){
-           Serial.println("predict number: 9");
+            output = output+"9";
         }else if(index == 9){
-           Serial.println("predict number: 0");
+            output = output+"0";
         }
+
+        max_value = 0.0;
+        index = 0;
+
+        for(int i = 0;i < 10; i++) {
+          if(max_value < float(probs_digit2[i])){
+             max_value = float(probs_digit2[i]);
+             index = i;
+          }
+        }  
+
+        if(index == 0){
+            output = output+"1";
+        }else  if(index == 1){
+            output = output+"2";
+        }else  if(index == 2){
+            output = output+"3";
+        }else if(index == 3){
+            output = output+"4";
+        }else if(index == 4){
+            output = output+"5";
+        }else if(index == 5){
+            output = output+"6";
+        }else if(index == 6){
+            output = output+"7";
+        }else if(index == 7){
+            output = output+"8";
+        }else if(index == 8){
+            output = output+"9";
+        }else if(index == 9){
+            output = output+"0";
+        }
+        
+        max_value = 0.0;
+        index = 0;
+
+        for(int i = 0;i < 10; i++) {
+          if(max_value < float(probs_digit3[i])){
+             max_value = float(probs_digit3[i]);
+             index = i;
+          }
+        }  
+
+        if(index == 0){
+            output = output+"1";
+        }else  if(index == 1){
+            output = output+"2";
+        }else  if(index == 2){
+            output = output+"3";
+        }else if(index == 3){
+            output = output+"4";
+        }else if(index == 4){
+            output = output+"5";
+        }else if(index == 5){
+            output = output+"6";
+        }else if(index == 6){
+            output = output+"7";
+        }else if(index == 7){
+            output = output+"8";
+        }else if(index == 8){
+            output = output+"9";
+        }else if(index == 9){
+            output = output+"0";
+        }
+
+        Serial.println("predict number: "+ output);
         
 
         
@@ -544,7 +977,10 @@ static esp_err_t stream_handler(httpd_req_t *req){
             fr_face = fr_start;
             fr_encode = fr_start;
             fr_recognize = fr_start;
+            
             if(!detection_enabled || fb->width > 400){
+
+
                 if(fb->format != PIXFORMAT_JPEG){
                     bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
                     esp_camera_fb_return(fb);
@@ -554,7 +990,7 @@ static esp_err_t stream_handler(httpd_req_t *req){
                         res = ESP_FAIL;
                     }
                 } else {
-                    _jpg_buf_len = fb->len;
+                    _jpg_buf_len = fb->width * fb->height * 3;
                     _jpg_buf = fb->buf;
                 }
             } else {
